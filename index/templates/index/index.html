@@ -1,0 +1,59 @@
+{% extends 'index/layout.html' %}
+{% load static %}
+{% block script %}
+<script src = "{% static 'index/index.js' %}" defer></script>
+<script src="{% static 'lib/cookie.min.js' %}" defer></script>
+{% endblock %}
+{% load static %}
+<style>
+        a:active{
+            cursor:pointer;
+        }
+
+</style>
+{% block body %}
+<div class="container-fluid">
+
+    <div class="create-form" style="background-color: transparent;">
+        <div class="container">
+
+            <p class="forms-label" style="color: azure;">Start a new form</p>
+
+            <div class="form-template-box">
+                <a><img src = "{% static 'Icon/blank-form.png' %}" alt = "Blank form" title = "Blank form" id="create-blank-form" style="border-radius: 10px;"></a>
+                <span class="form-template-label" style="color: azure">Blank Form</span>
+            </div>
+
+            <div class="form-template-box big-screen">
+                <img src = "{% static 'Template/contact_information.png' %}" alt = "Contact Information" title = "Contact Information" id="create-contact-form" style="border-radius: 10px;">
+                <span class="form-template-label"style="color: azure">Contact Information</span>
+            </div>
+            <div class="form-template-box big-screen">
+                <img src = "{% static 'Template/customer_feedback.png' %}" alt = "Customer Feedback" title = "Customer Feedback" id="create-customer-feedback" style="border-radius: 10px;">
+                <span class="form-template-label"style="color: azure">Customer Feedback</span>
+            </div>
+            <div class="form-template-box big-screen">
+                <img src = "{% static 'Template/customer_feedback.png' %}" alt = "Event Registration" title = "Event Registration" id="create-event-registration" style="border-radius: 10px;">
+                <span class="form-template-label"style="color: azure">Event Registration</span>
+            </div>
+        </div>
+    </div>
+    <div class="container">
+        <div class="form-list">
+            <p class="forms-label" style="color: azure">Your forms:</p>
+            {% for i in forms %}
+            <a href = "{% url 'edit_form' i.code %}" class="form-list-link">
+                <div class="form-box" style="border-radius: 10px; color:black">
+                    <div class="form-list-title"><h4 class="form-list-title-text" style="color:#C0C0C0;"><b>{{i.title}}</b></h4></div>
+                    {% if i.createdAt == i.updatedAt %}
+                    <p class="form-list-timestamp" style="color:gold;">{{i.createdAt}}</p>
+                    {% else %}
+                    <p class="form-list-timestamp" style="color: gold;">{{i.updatedAt}}</p>
+                    {% endif %}
+                </div>
+            </a>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endblock %}
