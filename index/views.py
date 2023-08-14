@@ -533,6 +533,8 @@ def submit_form(request, code):
 
     else:
         if request.method == "POST":
+            user_agent = request.META.get('HTTP_USER_AGENT', '')
+            form_data = request.POST.get('form_data')
             code = ''.join(random.choice(string.ascii_letters + string.digits) for x in range(20))
             if formInfo.authenticated_responder:
                 response = Responses(response_code = code, response_to = formInfo, responder_ip = get_client_ip(request), responder = request.user)
@@ -554,6 +556,7 @@ def submit_form(request, code):
                     answer.save()
                     response.response.add(answer)
                     response.save()
+            
             return render(request, "index/form_response.html", {
                 "form": formInfo,
                 "code": code,
@@ -566,7 +569,6 @@ def responses(request, code):
     if not request.user.is_authenticated:
         return HttpResponseRedirect(reverse("login"))
     formInfo = Form.objects.filter(code = code)
-    #Checking if form exists
     if formInfo.count() == 0:
         return HttpResponseRedirect(reverse('404'))
     else: formInfo = formInfo[0]
@@ -598,100 +600,61 @@ def responses(request, code):
         "filteredResponsesSummary": filteredResponsesSummary
     })
 
+def retrieve_checkbox_choices(response, question):
+    checkbox_answers = []
+
+    answers = Answer.objects.filter(answer_to=question, response=response)
+    for answer in answers:
+        selected_choice_ids = answer.answer.split(',')  # Split the string into individual choice IDs
+        selected_choices = Choices.objects.filter(pk__in=selected_choice_ids)
+        checkbox_answers.append([choice.choice for choice in selected_choices])
+
+    return checkbox_answers
+
+
 
 def exportcsv(request,code):
     formInfo = Form.objects.filter(code = code)
     formInfo = formInfo[0]
     responses=Responses.objects.filter(response_to = formInfo)
-    responsesSummary = []
-    choiceAnswered = {}
-    p=[]
-    multi_choice_answer=None
+    questions = formInfo.questions.all()
+
+
+    http_response = HttpResponse()
+    http_response['Content-Disposition'] = f'attachment; filename= {formInfo.title}.csv'
+    writer = csv.writer(http_response)
+    header = ['Response Code', 'Responder', 'Responder Email','Responder_ip']
     
-    for question in formInfo.questions.all():
-        answers = Answer.objects.filter(answer_to = question.id)
-        if question.question_type == "multiple choice" or question.question_type == "checkbox":
-            choiceAnswered[question.question] = choiceAnswered.get(question.question, {})
-            check_box_ans=[]
-            
-            for answer in answers:
-                if question.question_type == "multiple choice":
-                    p.append({question.question:answer.answer_to.choices.get(id = answer.answer).choice})
-                summa=[]
-                if question.question_type == "checkbox":
-                          
-                    for response in (responses):
-                        response_info = []
-                        
-                        for answer in response.response.all():
-
-                            response_info.append(answer.answer_to.choices.get(id = answer.answer).choice)
-                        #responses_dict[answer.answer_to.question] = response_info
-                        summa.append({question.question:response_info})
-                    check_box_ans.append(answer.answer_to.choices.get(id = answer.answer).choice)
-                multi_choice_answer=summa
-
-        responsesSummary.append({"question": question, "answers":answers })
-    print(multi_choice_answer)
-    if multi_choice_answer==None:
-        pass
-    else:
-        p=p+multi_choice_answer
-    form_title= f"{formInfo.title}.csv"
-    first_row=[]
-    if responses.count()> 0:
-        for i in responses:
-            if formInfo.collect_email:
-                first_row.append("responder")
-            elif formInfo.authenticated_responder:
-                first_row.append("responder")
-            else:
-                first_row.append("responder") 
+    for question in questions:
+        header.append(question.question)
     
-    for r in responsesSummary:
-        for k in range(len(r['answers'])):
-            first_row.append(r['question'].question)
-            if question.question_type == "multiple choice" or question.question_type == "checkbox":    
-                pass
-            else:
-                p.append({r['answers'][k].answer_to.question:(r['answers'][k].answer)})    
-    print('p=',p)
-    values_by_key = {}
-    for dic in p:
-        for key, value in dic.items():
-            if key in values_by_key:
-                values_by_key[key].append(value)
-            else:
-                values_by_key[key] = [value]
-    print(values_by_key)
-    #print(choiceAnswered)
+    writer.writerow(header)
 
-    list_of_dicts = []
-    if len(values_by_key)>0:
-        response_count = len(values_by_key [next(iter(values_by_key))])  # Get the number of responses from the first question
-        #print(response_count)
-        for i in range(response_count):
+    for response in responses:
+        response_data = [
+        response.response_code,
+        response.responder.username if response.responder else 'Anonymous',
+        response.responder_email if response.responder_email else '',
+        response.responder_ip if response.responder_ip else ''
+    ]
+        for question in questions:
+            answer = Answer.objects.filter(answer_to=question, response=response).first()
             
-            dictionary = {}
-            for question, response_ans in values_by_key.items():
+        
+            if  question.question_type not in ['multiple choice','checkbox']:
+                response_data.append(answer.answer if answer else '')
+            elif question.question_type == "multiple choice":
+                response_data.append(answer.answer_to.choices.get(id = answer.answer).choice if answer else '')
+            elif question.question_type == "checkbox":
+                if answer and question.question_type == 'checkbox':
+                    checkbox_choices = retrieve_checkbox_choices(response,answer.answer_to)
+                    response_data.append(checkbox_choices)
 
-                try:
-                    dictionary[question] = response_ans[i]
-                    dictionary['responder']=responses[i].responder_ip
-                except:
-                    dictionary[question]=''
-                    dictionary['responder']=''
-            list_of_dicts.append(dictionary)
+        print(response_data)
+        writer.writerow(response_data)
+        
+    return http_response
 
-    #print(responses)
-    print(list_of_dicts)
-
-    response = HttpResponse()
-    response['Content-Disposition'] = f'attachment; filename= {form_title}'
-    writer = csv.DictWriter(response,fieldnames=set(first_row))
-    writer.writeheader()
-    writer.writerows(list_of_dicts)
-    return response
 
 def response(request, code, response_code):
     formInfo = Form.objects.filter(code = code)
