@@ -4,6 +4,7 @@ from . import views
 urlpatterns = [
     path('', views.test, ),                                                                             
     path('index',views.index,name='index'), 
+    path('google',views.google,name='google'),
     path('form/<str:code>/export_csv', views.exportcsv,name='export_csv'),
     path('features',views.features,name='features'),                                                    
     path('login', views.login_view, name="login"),                                               

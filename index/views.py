@@ -6,6 +6,8 @@ from django.contrib.auth import authenticate, login, logout
 from .models import User, Choices, Questions, Answer, Form, Responses,Hostip,Clientip
 from django.core import serializers
 from index.functions.get_ip import get_user_ip
+from django.contrib import messages
+
 import json
 import random
 import string
@@ -17,6 +19,9 @@ def test(request):
 
 def features(request):
     return render(request,"index/features.html")
+
+def google(request):
+    return render(request,"index/google.html")
 
 # Create your views here.
 def index(request):
@@ -536,6 +541,7 @@ def submit_form(request, code):
             user_agent = request.META.get('HTTP_USER_AGENT', '')
             form_data = request.POST.get('form_data')
             code = ''.join(random.choice(string.ascii_letters + string.digits) for x in range(20))
+            print(request.META)
             if formInfo.authenticated_responder:
                 response = Responses(response_code = code, response_to = formInfo, responder_ip = get_client_ip(request), responder = request.user)
                 response.save()
@@ -546,6 +552,7 @@ def submit_form(request, code):
                 else:
                     response = Responses(response_code = code, response_to = formInfo, responder_ip = get_client_ip(request), responder_email=request.POST["email-address"])
                     response.save()
+
             for i in request.POST:
                 #Excluding csrf token
                 if i == "csrfmiddlewaretoken" or i == "email-address":
